@@ -167,8 +167,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   ElevatedButton(
                       onPressed: () async {
-                        FilePickerResult? result = await FilePicker.platform
-                            .pickFiles(type: FileType.image);
+                        FilePickerResult? result =
+                            await FilePicker.pickFiles(type: FileType.image);
                         if (result != null && result.files.isNotEmpty) {
                           setState(() {
                             appConfig.backgroundPath = result.files.first.path;

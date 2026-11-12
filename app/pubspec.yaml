@@ -33,13 +33,13 @@ dependencies:
 
   path_provider: ^2.0.11
   path: ^1.8.1
-  sentry_flutter: ^6.9.0
-  package_info_plus: ^1.4.3
+  sentry_flutter: ^8.14.2
+  package_info_plus: ^9.0.1
   logging: ^1.0.2
   flutter_window_close: ^0.2.2
   url_launcher: ^6.1.5
   line_icons: ^2.0.1
-  file_picker: ^5.0.1
+  file_picker: ^11.0.3
   shared_preferences: ^2.0.15
   window_manager: ^0.2.5
   oauth2: ^2.0.0
@@ -67,6 +67,11 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # sentry_flutter 8.x 的 Swift 程式碼只相容 Sentry Cocoa 8.46.0；
+  # 走 SwiftPM 會解析到更新的版本而編譯失敗，所以改由 CocoaPods 鎖定版本。
+  config:
+    enable-swift-package-manager: false
 
   assets:
     - assets/

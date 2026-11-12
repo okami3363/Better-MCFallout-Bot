@@ -22,7 +22,7 @@ void main() async {
     options.dsn =
         'https://6dcf85d7633043238a39a96b056c81d3@o1068024.ingest.sentry.io/6612655';
 
-    FutureOr<SentryEvent?> beforeSend(SentryEvent event, {dynamic hint}) async {
+    FutureOr<SentryEvent?> beforeSend(SentryEvent event, Hint hint) async {
       if (!kReleaseMode) return null;
 
       final MediaQueryData data =
@@ -55,15 +55,12 @@ void main() async {
           },
           contexts: event.contexts.copyWith(
               device: SentryDevice(
-            language: Platform.localeName,
             simulator: false,
             screenHeightPixels: size.height.toInt(),
             screenWidthPixels: size.width.toInt(),
             screenDensity: data.devicePixelRatio,
             online: true,
             screenDpi: (data.devicePixelRatio * 160).toInt(),
-            screenResolution: '${size.width}x${size.height}',
-            timezone: DateTime.now().timeZoneName,
           )),
           exceptions: exceptions);
 
