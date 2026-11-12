@@ -1560,7 +1560,7 @@ prismarine-block@^1.13.1, prismarine-block@^1.14.1:
     prismarine-nbt "^2.0.0"
     prismarine-registry "^1.1.0"
 
-prismarine-chat@^1.4.1, prismarine-chat@^1.5.0, prismarine-chat@^1.7.1:
+prismarine-chat@1.8.0, prismarine-chat@^1.4.1, prismarine-chat@^1.5.0, prismarine-chat@^1.7.1:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/prismarine-chat/-/prismarine-chat-1.8.0.tgz#9cae1bfc17c79450ed8736dbc80b43050b452347"
   integrity sha512-hEz47GESIEP0W1KSHrK7ZSy0PqbQW7khYWenv8d5wvyAYnBs1E4KXDBJSWqyGIYinKGN9aes8v3xpQhgURK/Fg==

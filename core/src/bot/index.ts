@@ -2,6 +2,7 @@ import { BotHelper } from "@/bot/bot_helper";
 import { EventEmitter, Event } from "@/util/event_emitter";
 import * as mineflayer from "mineflayer";
 import * as autoeat from "mineflayer-auto-eat";
+import prismarineChat from "prismarine-chat";
 import * as readline from "readline";
 import { ActionHandler } from "@/util/action_handler";
 import { config } from "@/index";
@@ -115,6 +116,20 @@ function listenBotEvent(bot: mineflayer.Bot) {
   });
 
   bot.on("kicked", (reason) => {
-    EventEmitter.error(`The bot was kicked by server: ${reason}`);
+    EventEmitter.error(`被伺服器踢出：${kickReasonToText(bot, reason)}`);
   });
+}
+
+/**
+ * 伺服器給的踢出原因是聊天元件的 JSON，轉成純文字才看得懂：
+ * app 會把這段文字直接顯示在錯誤對話框。
+ */
+function kickReasonToText(bot: mineflayer.Bot, reason: string): string {
+  try {
+    const ChatMessage = prismarineChat(bot.version);
+    return new ChatMessage(JSON.parse(reason)).toString();
+  } catch {
+    // 不是聊天元件就照原樣顯示
+    return reason;
+  }
 }

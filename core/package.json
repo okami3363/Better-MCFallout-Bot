@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "mineflayer": "4.7.0",
-    "mineflayer-auto-eat": "3.3.1"
+    "mineflayer-auto-eat": "3.3.1",
+    "prismarine-chat": "1.8.0"
   }
 }

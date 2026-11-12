@@ -98,7 +98,7 @@ void main() {
     // core 被踢出後行程不會自己結束
     final bot = createBot(fakeCore([
       emit('info', {'message': 'Bot created'}),
-      emit('error', {'message': 'The bot was kicked by server: 您已被伺服器封鎖'}),
+      emit('error', {'message': '被伺服器踢出：您已被伺服器封鎖'}),
       emit('disconnected', {'reason': 'disconnect.quitting'}),
       hang,
     ]));
