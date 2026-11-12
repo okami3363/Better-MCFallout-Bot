@@ -10,6 +10,9 @@ import 'package:path/path.dart';
 BotCore? _instance;
 final Logger _logger = Logger('bot_core');
 
+/// 啟動 core 行程的方式，測試時用來換成假的 core。
+typedef CoreLauncher = Future<Process> Function(Map config);
+
 class BotCore {
   static BotCore? get instance {
     return _instance;
@@ -19,6 +22,8 @@ class BotCore {
   final int port;
   final Account account;
   int reconnectTimes;
+  final Duration connectTimeout;
+  final CoreLauncher? _startCore;
 
   late String host;
   late Process process;
@@ -26,29 +31,36 @@ class BotCore {
   late ConnectedEvent connectedData;
   bool connected = false;
 
+  /// core 寫到 stderr 的內容，core 當掉時用來說明原因。
+  final StringBuffer _stderr = StringBuffer();
+  late Future<void> _stderrDone;
+
   BotCore.createBot(
       {required this.region,
       required this.port,
       required this.account,
-      this.reconnectTimes = 0}) {
+      this.reconnectTimes = 0,
+      this.connectTimeout = const Duration(seconds: 20),
+      CoreLauncher? startCore})
+      : _startCore = startCore {
     _instance = this;
   }
 
-  Future<bool> connect() async {
-    if (connected) return true;
-    try {
-      // Not the first time to reconnect
-      if (reconnectTimes > 1) {
-        await Future.delayed(const Duration(seconds: 15));
-      }
+  /// 連線到伺服器。成功回傳 null，失敗回傳原因。
+  Future<String?> connect() async {
+    if (connected) return null;
 
-      await _connect().timeout(const Duration(seconds: 20));
-      // Successful to reconnect, so reset reconnect times
-      reconnectTimes > 0 ? reconnectTimes-- : reconnectTimes = 0;
-      return true;
-    } on TimeoutException {
-      return false;
+    // Not the first time to reconnect
+    if (reconnectTimes > 1) {
+      await Future.delayed(const Duration(seconds: 15));
     }
+
+    final error = await _connect();
+    if (error != null) return error;
+
+    // Successful to reconnect, so reset reconnect times
+    reconnectTimes > 0 ? reconnectTimes-- : reconnectTimes = 0;
+    return null;
   }
 
   void disconnect() {
@@ -101,39 +113,73 @@ class BotCore {
     _executeAction(BotAction(action: BotActionType.attack, method: method));
   }
 
-  Future<void> _connect() async {
+  /// 啟動 core 並等它連上伺服器。成功回傳 null，失敗回傳原因。
+  Future<String?> _connect() async {
     if (region == ServerRegion.auto) {
       host = await ServerRegion.getBestHost();
     } else {
       host = region.host;
     }
 
-    final config = _getConfig();
-
-    if (kDebugMode) {
-      /// Run the core in debug mode (without compiling to the executable)
-      final workingDirectory = join(dirname(Directory.current.path), 'core');
-      await Process.run('yarn', ['build'],
-          workingDirectory: workingDirectory);
-      process = await Process.start(
-          'node', ['dist/index.js', json.encode(config)],
-          workingDirectory: workingDirectory);
-    } else {
-      process =
-          await Process.start(_getExecutablePath(), [json.encode(config)]);
+    try {
+      process = await (_startCore ?? _startRealCore)(_getConfig());
+    } on ProcessException catch (e) {
+      return '無法啟動 core：$e';
     }
     eventStream = _listen();
     _logging();
+
+    final result = Completer<String?>();
+    void finish(String? error) {
+      if (!result.isCompleted) result.complete(error);
+    }
 
     whenEvent<ConnectedEvent>((event) {
       connected = true;
       connectedData = event;
       _logger.info('Connected to $host:$port');
+      finish(null);
     });
 
-    // Wait for connecting to the server
-    while (!connected) {
-      await Future.delayed(const Duration(milliseconds: 100));
+    // core 回報的最後一個錯誤，例如被伺服器踢出的原因
+    String? lastError;
+    whenEvent<ErrorLogEvent>((event) => lastError = event.message);
+
+    // 還沒連上就斷線（例如被踢出）時 core 行程不會自己結束，但也不必再等
+    whenEvent<DisconnectedEvent>((event) => finish(lastError ?? event.reason));
+
+    // core 在連上之前就結束（例如當掉）時不必再等，直接回報它留下的錯誤
+    process.exitCode.then((code) async {
+      await _stderrDone;
+      finish(_lastErrorLine(_stderr.toString()) ?? 'core 意外結束（結束代碼 $code）');
+    });
+
+    final error = await result.future
+        .timeout(connectTimeout, onTimeout: () => lastError ?? '連線逾時');
+
+    // 連線失敗就結束 core，避免它留在背景、之後自己連上伺服器
+    if (error != null) process.kill();
+    return error;
+  }
+
+  /// 從 core 的 stderr 找出最後一行錯誤（例如 `TypeError: ...`），
+  /// 略過堆疊與無關的警告。
+  static String? _lastErrorLine(String stderr) {
+    final errors =
+        RegExp(r'^\w*Error\b.*$', multiLine: true).allMatches(stderr);
+    return errors.isEmpty ? null : errors.last.group(0)!.trim();
+  }
+
+  Future<Process> _startRealCore(Map config) async {
+    if (kDebugMode) {
+      /// Run the core in debug mode (without compiling to the executable)
+      final workingDirectory = join(dirname(Directory.current.path), 'core');
+      await Process.run('yarn', ['build'],
+          workingDirectory: workingDirectory);
+      return Process.start('node', ['dist/index.js', json.encode(config)],
+          workingDirectory: workingDirectory);
+    } else {
+      return Process.start(_getExecutablePath(), [json.encode(config)]);
     }
   }
 
@@ -170,10 +216,11 @@ class BotCore {
       onPause: () => stdout.pause(),
     );
 
-    process.stderr.listen((data) {
+    _stderrDone = process.stderr.listen((data) {
       final String error = utf8.decode(data);
+      _stderr.write(error);
       _logger.severe(error, null, StackTrace.current);
-    });
+    }).asFuture();
 
     return controller.stream.asBroadcastStream();
   }

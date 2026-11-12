@@ -91,13 +91,12 @@ class _Connecting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
+    return FutureBuilder<String?>(
         future: bot.connect(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done &&
-              snapshot.data != null) {
-            bool successful = snapshot.data!;
-            if (successful) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            final error = snapshot.data;
+            if (error == null) {
               WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
                 Navigator.pop(context);
                 Navigator.push(
@@ -108,11 +107,10 @@ class _Connecting extends StatelessWidget {
 
               return Container();
             } else {
-              return const AlertDialog(
-                title: Text('錯誤'),
-                content:
-                    Text('無法連線到廢土伺服器\n請檢查帳號密碼是否正確，如果正確，請稍後再試。\n如仍然失敗請聯繫作者'),
-                actions: [ConfirmButton()],
+              return AlertDialog(
+                title: const Text('錯誤'),
+                content: Text('無法連線到廢土伺服器\n\n$error'),
+                actions: const [ConfirmButton()],
               );
             }
           } else {
