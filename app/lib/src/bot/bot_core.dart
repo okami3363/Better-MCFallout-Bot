@@ -23,7 +23,7 @@ class BotCore {
   final Account account;
   int reconnectTimes;
   final Duration connectTimeout;
-  final CoreLauncher? _startCore;
+  final CoreLauncher _startCore;
 
   late String host;
   late Process process;
@@ -33,7 +33,9 @@ class BotCore {
 
   /// core 寫到 stderr 的內容，core 當掉時用來說明原因。
   final StringBuffer _stderr = StringBuffer();
-  late Future<void> _stderrDone;
+
+  /// core 的 stdout 與 stderr 都讀完時完成。
+  late Future<void> _outputDone;
 
   BotCore.createBot(
       {required this.region,
@@ -41,7 +43,7 @@ class BotCore {
       required this.account,
       this.reconnectTimes = 0,
       this.connectTimeout = const Duration(seconds: 20),
-      CoreLauncher? startCore})
+      CoreLauncher startCore = _startRealCore})
       : _startCore = startCore {
     _instance = this;
   }
@@ -122,8 +124,9 @@ class BotCore {
     }
 
     try {
-      process = await (_startCore ?? _startRealCore)(_getConfig());
-    } on ProcessException catch (e) {
+      process = await _startCore(_getConfig());
+    } catch (e) {
+      // 不限定例外型別：啟動失敗一律要變成失敗原因，不能讓呼叫端以為沒事
       return '無法啟動 core：$e';
     }
     eventStream = _listen();
@@ -148,10 +151,13 @@ class BotCore {
     // 還沒連上就斷線（例如被踢出）時 core 行程不會自己結束，但也不必再等
     whenEvent<DisconnectedEvent>((event) => finish(lastError ?? event.reason));
 
-    // core 在連上之前就結束（例如當掉）時不必再等，直接回報它留下的錯誤
+    // core 在連上之前就結束（例如當掉）時不必再等，直接回報它留下的錯誤。
+    // 行程結束時輸出可能還沒讀完，要等讀完才知道它最後說了什麼。
     process.exitCode.then((code) async {
-      await _stderrDone;
-      finish(_lastErrorLine(_stderr.toString()) ?? 'core 意外結束（結束代碼 $code）');
+      await _outputDone;
+      finish(_lastErrorLine(_stderr.toString()) ??
+          lastError ??
+          'core 意外結束（結束代碼 $code）');
     });
 
     final error = await result.future
@@ -170,12 +176,11 @@ class BotCore {
     return errors.isEmpty ? null : errors.last.group(0)!.trim();
   }
 
-  Future<Process> _startRealCore(Map config) async {
+  static Future<Process> _startRealCore(Map config) async {
     if (kDebugMode) {
       /// Run the core in debug mode (without compiling to the executable)
       final workingDirectory = join(dirname(Directory.current.path), 'core');
-      await Process.run('yarn', ['build'],
-          workingDirectory: workingDirectory);
+      await Process.run('yarn', ['build'], workingDirectory: workingDirectory);
       return Process.start('node', ['dist/index.js', json.encode(config)],
           workingDirectory: workingDirectory);
     } else {
@@ -186,27 +191,21 @@ class BotCore {
   Stream<IEvent> _listen() {
     late final StreamController<IEvent> controller;
 
-    final stdout = process.stdout.listen((data) {
-      final text = utf8.decode(data);
+    // 逐行解析：core 的 stdout 除了 JSON 事件，也會夾雜其他內容（例如
+    // mineflayer 印出的錯誤堆疊），不能讓它們連累前後的事件。
+    final stdout = process.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .transform(const LineSplitter())
+        .listen((line) {
+      if (line.isEmpty) return;
+
       try {
-        final List<String> jsonList = LineSplitter.split(text).toList();
-
-        for (final String json in jsonList) {
-          if (json.isEmpty) return;
-          final RawEvent event = RawEvent.fromJson(json);
-
-          final handledEvent = _eventHandler(event);
-          if (handledEvent != null) {
-            controller.add(handledEvent);
-          }
+        final handledEvent = _eventHandler(RawEvent.fromJson(line));
+        if (handledEvent != null) {
+          controller.add(handledEvent);
         }
       } catch (e) {
-        if (text.contains('ECONNRESET')) {
-          controller.add(DisconnectedEvent.create(text));
-          return;
-        }
-
-        _logger.warning('Failed to parse event: $e ($text)');
+        _logger.warning('Failed to parse event: $e ($line)');
       }
     });
 
@@ -216,11 +215,14 @@ class BotCore {
       onPause: () => stdout.pause(),
     );
 
-    _stderrDone = process.stderr.listen((data) {
+    final stderr = process.stderr.listen((data) {
       final String error = utf8.decode(data);
       _stderr.write(error);
       _logger.severe(error, null, StackTrace.current);
-    }).asFuture();
+    });
+
+    _outputDone =
+        Future.wait([stdout.asFuture<void>(), stderr.asFuture<void>()]);
 
     return controller.stream.asBroadcastStream();
   }
@@ -281,7 +283,7 @@ class BotCore {
         'attack_interval_ticks': appConfig.attackIntervalTicks,
       };
 
-  String _getExecutablePath() {
+  static String _getExecutablePath() {
     final String file;
     if (Platform.isWindows) {
       file = 'better-mcfallout-bot-core.exe';

@@ -20,6 +20,9 @@ String emit(String event, Map<String, dynamic> data) =>
 /// 行程不結束也不再輸出，模擬卡住的 core。
 const hang = 'exec sleep 30';
 
+/// 「立刻回報」的上限：遠短於預設的 20 秒逾時。
+const immediately = Duration(seconds: 5);
+
 BotCore createBot(CoreLauncher startCore,
         {Duration connectTimeout = const Duration(seconds: 20)}) =>
     BotCore.createBot(
@@ -70,19 +73,25 @@ void main() {
       'exit 1',
     ]));
 
-    final stopwatch = Stopwatch()..start();
-    final error = await bot.connect();
-
-    expect(error,
+    expect(await bot.connect().timeout(immediately),
         "TypeError: Cannot read properties of undefined (reading 'overworld')");
-    // 不等 20 秒逾時
-    expect(stopwatch.elapsed, lessThan(const Duration(seconds: 5)));
   });
 
   test('core 沒留下任何錯誤就結束時，回報它的結束代碼', () async {
     final bot = createBot(fakeCore(['exit 3']));
 
     expect(await bot.connect(), 'core 意外結束（結束代碼 3）');
+  });
+
+  test('core 回報錯誤後就結束時，回報該錯誤而不是結束代碼', () async {
+    // core 建立 bot 失敗時會用事件回報錯誤，然後以代碼 0 結束
+    final bot = createBot(fakeCore([
+      emit('error', {'message': 'Error while creating the bot: boom'}),
+      'exit 0',
+    ]));
+
+    expect(await bot.connect().timeout(immediately),
+        'Error while creating the bot: boom');
   });
 
   test('被伺服器踢出時，立刻回報伺服器給的原因', () async {
@@ -94,11 +103,32 @@ void main() {
       hang,
     ]));
 
-    final stopwatch = Stopwatch()..start();
-    final error = await bot.connect();
+    expect(await bot.connect().timeout(immediately), contains('您已被伺服器封鎖'));
+  });
 
-    expect(error, contains('您已被伺服器封鎖'));
-    expect(stopwatch.elapsed, lessThan(const Duration(seconds: 5)));
+  test('core 在事件之間印出非 JSON 內容時，仍立刻回報它回報的錯誤', () async {
+    // mineflayer 會先把錯誤堆疊印到 stdout，才輪到 core 的 JSON 事件
+    final bot = createBot(fakeCore([
+      "cat <<'EOF'",
+      'Error: connect ECONNREFUSED 127.0.0.1:25565',
+      '    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1595:16) {',
+      '  errno: -61,',
+      "  code: 'ECONNREFUSED'",
+      '}',
+      jsonEncode({
+        'event': 'error',
+        'data': {'message': 'connect ECONNREFUSED 127.0.0.1:25565'}
+      }),
+      jsonEncode({
+        'event': 'disconnected',
+        'data': {'reason': 'socketClosed'}
+      }),
+      'EOF',
+      hang,
+    ]));
+
+    expect(await bot.connect().timeout(immediately),
+        'connect ECONNREFUSED 127.0.0.1:25565');
   });
 
   test('core 回報錯誤後沒有下文時，逾時後回報該錯誤', () async {
@@ -120,15 +150,13 @@ void main() {
   });
 
   test('連線失敗後會結束 core 行程，不讓它留在背景', () async {
-    late Process core;
-    final bot = createBot(
-        (config) async => core = await Process.start('sh', ['-c', hang]),
+    final bot = createBot(fakeCore([hang]),
         connectTimeout: const Duration(milliseconds: 300));
 
     await bot.connect();
 
     // 沒被結束的話，要等假 core 的 sleep 30 跑完才會有結束代碼
-    await core.exitCode.timeout(const Duration(seconds: 5));
+    await bot.process.exitCode.timeout(immediately);
   });
 
   test('core 無法啟動時，回報啟動失敗的原因', () async {
@@ -136,5 +164,12 @@ void main() {
         'yarn', ['build'], 'No such file or directory', 2));
 
     expect(await bot.connect(), contains('No such file or directory'));
+  });
+
+  test('啟動 core 時發生其他例外，也回報原因而不是丟出例外', () async {
+    final bot = createBot(
+        (config) => throw Exception('Failed to find core executable'));
+
+    expect(await bot.connect(), contains('Failed to find core executable'));
   });
 }

@@ -95,7 +95,9 @@ class _Connecting extends StatelessWidget {
         future: bot.connect(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            final error = snapshot.data;
+            // connect() 丟出例外時 data 也是 null，不能因此當成連線成功
+            final error =
+                snapshot.hasError ? '${snapshot.error}' : snapshot.data;
             if (error == null) {
               WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
                 Navigator.pop(context);
