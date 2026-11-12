@@ -34,6 +34,21 @@ export function createBot() {
     checkTimeoutInterval: 60 * 1000, // 60 seconds
   });
 
+  // 廢土伺服器送來的註冊表 key 沒有命名空間（例如 `dimension_type`），
+  // 但 mineflayer 只認 `minecraft:dimension_type`，登入時會直接當掉。
+  // Minecraft 的識別碼省略命名空間時預設就是 `minecraft`，所以補上即可。
+  // 用 prependListener 才能搶在 mineflayer 自己的 login 處理之前執行。
+  bot._client.prependListener("login", (packet) => {
+    const codec = packet.dimensionCodec?.value;
+    if (!codec) return;
+
+    for (const key of Object.keys(codec)) {
+      if (key.includes(":")) continue;
+      codec[`minecraft:${key}`] = codec[key];
+      delete codec[key];
+    }
+  });
+
   bot.loadPlugin(autoeat.plugin);
 
   EventEmitter.info("Bot created");

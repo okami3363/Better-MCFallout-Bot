@@ -12,6 +12,7 @@
     "build:watch": "concurrently \"tsc -w\" \"tsc-alias -w\"",
     "start": "yarn build && node dist/index.js",
     "lint": "eslint src/**/*.ts --fix",
+    "test": "yarn build && node --test test/*.test.js",
     "pkg": "yarn build && pkg .",
     "pkg:linux": "yarn build && pkg --compress GZip -t linux .",
     "pkg:windows": "yarn build && pkg --compress GZip -t windows .",
