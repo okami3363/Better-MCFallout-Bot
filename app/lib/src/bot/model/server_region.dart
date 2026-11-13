@@ -46,8 +46,11 @@ enum ServerRegion {
 
       for (final host in hosts) {
         try {
-          final packet =
-              await mc.ping(host, timeout: const Duration(seconds: 1));
+          // ping 的 timeout 只管連線；對方接受連線卻不回應時要靠外層的
+          // timeout 才會結束，否則整個連線流程會卡在這裡。
+          final packet = await mc
+              .ping(host, timeout: const Duration(seconds: 1))
+              .timeout(const Duration(seconds: 3));
           final ping = packet?.ping;
           if (ping != null) {
             result[host] = ping;
