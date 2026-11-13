@@ -1,9 +1,6 @@
 import 'package:better_mcfallout_bot/src/better_mcfallout_bot.dart';
 import 'package:better_mcfallout_bot/src/widget/experience_indicator.dart';
 import 'package:flutter/material.dart' hide NetworkImage;
-import 'package:logging/logging.dart';
-
-final Logger _logger = Logger('bot_status_page');
 
 class BotStatusPage extends StatefulWidget {
   final BotCore bot;
@@ -32,38 +29,7 @@ class _BotStatusPageState extends State<BotStatusPage> {
 
     super.initState();
 
-    afterInit();
     analytics.pageView('Bot Status Page');
-  }
-
-  void afterInit() {
-    if (botAction == BotActionType.attack) {
-      widget.bot.attack(BotActionMethod.start);
-    }
-
-    widget.bot.whenEvent<DisconnectedEvent>((event) async {
-      _logger.info('The bot has disconnected: ${event.reason}');
-
-      Navigator.pop(context);
-      if (appConfig.autoReconnect) {
-        showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => ConnectingServer(
-                account: widget.bot.account,
-                reconnect: true,
-                reconnectTimes: widget.bot.reconnectTimes + 1));
-      } else {
-        showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-                  title: const Text('錯誤'),
-                  content: Text(
-                      '已與伺服器斷線，由於未啟用重新自動連線功能，因此將不會自動重新連線。\n斷線原因：${event.reason}'),
-                  actions: const [ConfirmButton()],
-                ));
-      }
-    });
   }
 
   @override
@@ -206,8 +172,10 @@ class _BotStatusPageState extends State<BotStatusPage> {
                           width: 205,
                           height: 50,
                           child: Tooltip(
-                            message:
-                                '自動重新連線伺服器，如果突然斷線或者廢土伺服器當機，會每 15 秒自動重新連線一次，若失敗超過 10 次則自動暫停。',
+                            message: '自動重新連線伺服器，如果突然斷線或者廢土伺服器當機，會立刻重新連線；'
+                                '連不上（包含連上後隨即又斷線）就每 ${BotConnector.retryInterval.inSeconds} 秒重試一次，'
+                                '連續失敗 ${BotConnector.slowAfterFailures} 次後改為每 ${BotConnector.slowRetryInterval.inMinutes} 分鐘重試一次，'
+                                '直到連上或手動取消為止。',
                             child: SwitchListTile(
                                 value: autoReconnect,
                                 onChanged: (value) {

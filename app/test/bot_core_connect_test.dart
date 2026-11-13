@@ -4,54 +4,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:better_mcfallout_bot/src/better_mcfallout_bot.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:oauth2/oauth2.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// 用 shell script 假裝是 core：印出 JSON 事件、寫 stderr、結束或卡住。
-CoreLauncher fakeCore(List<String> script) =>
-    (config) => Process.start('sh', ['-c', script.join('\n')]);
-
-/// core 從 stdout 印出的一行事件。
-String emit(String event, Map<String, dynamic> data) =>
-    "echo '${jsonEncode({'event': event, 'data': data})}'";
-
-/// 行程不結束也不再輸出，模擬卡住的 core。
-const hang = 'exec sleep 30';
-
-/// 「立刻回報」的上限：遠短於預設的 20 秒逾時。
-const immediately = Duration(seconds: 5);
-
-BotCore createBot(CoreLauncher startCore,
-        {Duration connectTimeout = const Duration(seconds: 20)}) =>
-    BotCore.createBot(
-        region: ServerRegion.defaultRegion,
-        port: 25565,
-        account: Account(
-            uuid: 'uuid',
-            username: 'tester',
-            minecraftToken: 'token',
-            credentials: Credentials('access-token')),
-        startCore: startCore,
-        connectTimeout: connectTimeout);
+import 'support.dart';
 
 void main() {
-  setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
-    await ConfigHelper.init();
-  });
+  setUpAll(initConfig);
 
   test('core 回報 connected 時連線成功', () async {
-    final bot = createBot(fakeCore([
-      emit('connected', {
-        'host': 'mcfallout.net',
-        'port': 25565,
-        'game_version': '1.19.2',
-        'start_at': 0
-      }),
-      hang,
-    ]));
+    final bot = createBot(fakeCore([connected, hang]));
     addTearDown(bot.disconnect);
 
     expect(await bot.connect(), isNull);

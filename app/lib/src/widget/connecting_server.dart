@@ -1,131 +1,89 @@
 import 'package:better_mcfallout_bot/src/better_mcfallout_bot.dart';
 import 'package:flutter/material.dart';
 
-class ConnectingServer extends StatefulWidget {
-  final Account account;
-  final bool reconnect;
-  final int reconnectTimes;
+/// 連線對話框：顯示 [connector] 連線的進度。
+///
+/// 斷線後的重連（[BotConnector.reconnect]）連不上會一直重試，所以多了取消的按鈕；
+/// 否則連不上就顯示原因。這裡只負責顯示，連線本身由
+/// [BotConnector.keepConnected] 推動。
+class ConnectingServer extends StatelessWidget {
+  final BotConnector connector;
 
-  const ConnectingServer(
-      {Key? key,
-      required this.account,
-      this.reconnect = false,
-      this.reconnectTimes = 0})
-      : super(key: key);
-
-  @override
-  State<ConnectingServer> createState() => _ConnectingServerState();
-}
-
-class _ConnectingServerState extends State<ConnectingServer> {
-  @override
-  void initState() {
-    super.initState();
-  }
+  const ConnectingServer({Key? key, required this.connector}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    if (widget.reconnectTimes > 10) {
-      return const AlertDialog(
-        title: Text('錯誤'),
-        content: Text('已嘗試重新連線超過 10 次，仍無法連線到伺服器，請稍後再試。\n如仍然失敗請聯繫作者'),
-        actions: [ConfirmButton()],
-      );
-    } else {
-      return FutureBuilder(
-          future: MicrosoftOauthHandler.validate(widget.account)
-              .timeout(const Duration(seconds: 15), onTimeout: () => false),
-          builder: (context, AsyncSnapshot snapshot) {
-            if (snapshot.hasData) {
-              // if the token is expired and refresh it failed
-              if (!snapshot.data) {
-                return AlertDialog(
-                  title: const Text('錯誤'),
-                  content: const Text('偵測到您的帳號憑證已過期'),
-                  actions: [
-                    TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          showDialog(
-                              barrierDismissible: false,
-                              context: context,
-                              builder: (context) =>
-                                  const MicrosoftOauthDialog());
-                        },
-                        child: const Text('重新登入'))
-                  ],
-                );
-              } else {
-                final bot = BotCore.createBot(
-                    region: appConfig.region,
-                    port: 25565,
-                    // Get the refreshed credential account
-                    account: accountStorage.get(widget.account.uuid)!,
-                    reconnectTimes: widget.reconnectTimes);
-
-                return _Connecting(bot: bot, reconnect: widget.reconnect);
-              }
-            } else {
-              return AlertDialog(
-                title: const Text('正在檢查帳號憑證是否有效...'),
-                content: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [CircularProgressIndicator()]),
-              );
-            }
-          });
+    // 關閉對話框前要先停止連線，否則之後連上時畫面又會被換成狀態頁
+    void close() {
+      connector.cancel();
+      Navigator.pop(context);
     }
-  }
-}
 
-class _Connecting extends StatelessWidget {
-  const _Connecting({
-    Key? key,
-    required this.bot,
-    required this.reconnect,
-  }) : super(key: key);
+    final loginButton = TextButton(
+        onPressed: () {
+          close();
+          showDialog(
+              barrierDismissible: false,
+              context: context,
+              builder: (context) => const MicrosoftOauthDialog());
+        },
+        child: const Text('重新登入'));
 
-  final BotCore bot;
-  final bool reconnect;
+    return AnimatedBuilder(
+        animation: connector,
+        builder: (context, child) {
+          final failed = connector.failures > 0;
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-        future: bot.connect(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            // connect() 丟出例外時 data 也是 null，不能因此當成連線成功
-            final error =
-                snapshot.hasError ? '${snapshot.error}' : snapshot.data;
-            if (error == null) {
-              WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-                Navigator.pop(context);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => BotStatusPage(bot: bot)));
-              });
-
-              return Container();
-            } else {
-              return AlertDialog(
-                title: const Text('錯誤'),
-                content: Text('無法連線到廢土伺服器\n\n$error'),
-                actions: const [ConfirmButton()],
-              );
-            }
-          } else {
+          // 不重試時，失敗就停下來顯示原因
+          if (failed && !connector.reconnect) {
             return AlertDialog(
-              title: reconnect
-                  ? const Text('由於與伺服器斷線，正在重新連線中...')
-                  : const Text('連線廢土伺服器中...'),
-              content: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [CircularProgressIndicator()]),
+              title: const Text('錯誤'),
+              content: Text('無法連線到廢土伺服器\n\n${connector.lastError}'),
+              actions: [
+                if (connector.needsLogin) loginButton,
+                const ConfirmButton()
+              ],
             );
           }
+
+          final nextAttemptAt = connector.nextAttemptAt;
+          final String title;
+          if (nextAttemptAt != null) {
+            title = '與伺服器斷線，等待重新連線中...';
+          } else if (connector.checkingCredentials) {
+            title = '正在檢查帳號憑證是否有效...';
+          } else if (connector.reconnect) {
+            title = '由於與伺服器斷線，正在重新連線中...';
+          } else {
+            title = '連線廢土伺服器中...';
+          }
+
+          return AlertDialog(
+            title: Text(title),
+            content: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (failed)
+                    Text([
+                      '已連續失敗 ${connector.failures} 次',
+                      '上次失敗原因：${connector.lastError}',
+                      if (nextAttemptAt != null)
+                        // DateTime.toString() 的格式是 yyyy-MM-dd HH:mm:ss.mmmuuu，只取時分秒
+                        '下次重連時間：${nextAttemptAt.toString().substring(11, 19)}'
+                    ].join('\n')),
+                  if (nextAttemptAt == null) ...[
+                    if (failed) const SizedBox(height: 16),
+                    const CircularProgressIndicator()
+                  ]
+                ]),
+            actions: connector.reconnect
+                ? [
+                    if (connector.needsLogin) loginButton,
+                    TextButton(onPressed: close, child: const Text('取消'))
+                  ]
+                : null,
+          );
         });
   }
 }

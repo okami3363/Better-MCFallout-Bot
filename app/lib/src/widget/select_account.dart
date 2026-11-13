@@ -21,10 +21,7 @@ class _SelectAccountState extends State<SelectAccount> {
         child: AccountView(
           onSelect: (account) {
             Navigator.pop(context);
-            showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => ConnectingServer(account: account));
+            startBot(account);
           },
         ),
       ),

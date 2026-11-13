@@ -90,11 +90,7 @@ class _HomePageState extends State<HomePage> {
                     context: context,
                     builder: (context) => const SelectAccount());
               } else {
-                showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => ConnectingServer(
-                        account: accountStorage.getAll().first));
+                startBot(accountStorage.getAll().first);
               }
             }
           },

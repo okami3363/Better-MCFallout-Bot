@@ -21,7 +21,6 @@ class BotCore {
   final ServerRegion region;
   final int port;
   final Account account;
-  int reconnectTimes;
   final Duration connectTimeout;
   final CoreLauncher _startCore;
 
@@ -30,6 +29,11 @@ class BotCore {
   late Stream<IEvent> eventStream;
   late ConnectedEvent connectedData;
   bool connected = false;
+
+  final _connectionLost = Completer<String>();
+
+  /// 連上伺服器之後連線中斷時完成，值是原因。使用者手動斷線時不會完成。
+  Future<String> get connectionLost => _connectionLost.future;
 
   /// core 寫到 stderr 的內容，core 當掉時用來說明原因。
   final StringBuffer _stderr = StringBuffer();
@@ -41,28 +45,10 @@ class BotCore {
       {required this.region,
       required this.port,
       required this.account,
-      this.reconnectTimes = 0,
       this.connectTimeout = const Duration(seconds: 20),
       CoreLauncher startCore = _startRealCore})
       : _startCore = startCore {
     _instance = this;
-  }
-
-  /// 連線到伺服器。成功回傳 null，失敗回傳原因。
-  Future<String?> connect() async {
-    if (connected) return null;
-
-    // Not the first time to reconnect
-    if (reconnectTimes > 1) {
-      await Future.delayed(const Duration(seconds: 15));
-    }
-
-    final error = await _connect();
-    if (error != null) return error;
-
-    // Successful to reconnect, so reset reconnect times
-    reconnectTimes > 0 ? reconnectTimes-- : reconnectTimes = 0;
-    return null;
   }
 
   void disconnect() {
@@ -116,7 +102,9 @@ class BotCore {
   }
 
   /// 啟動 core 並等它連上伺服器。成功回傳 null，失敗回傳原因。
-  Future<String?> _connect() async {
+  Future<String?> connect() async {
+    if (connected) return null;
+
     if (region == ServerRegion.auto) {
       host = await ServerRegion.getBestHost();
     } else {
@@ -133,30 +121,42 @@ class BotCore {
     _logging();
 
     final result = Completer<String?>();
-    void finish(String? error) {
-      if (!result.isCompleted) result.complete(error);
-    }
 
     whenEvent<ConnectedEvent>((event) {
       connected = true;
       connectedData = event;
       _logger.info('Connected to $host:$port');
-      finish(null);
+      if (!result.isCompleted) result.complete(null);
     });
 
     // core 回報的最後一個錯誤，例如被伺服器踢出的原因
     String? lastError;
     whenEvent<ErrorLogEvent>((event) => lastError = event.message);
 
-    // 還沒連上就斷線（例如被踢出）時 core 行程不會自己結束，但也不必再等
-    whenEvent<DisconnectedEvent>((event) => finish(lastError ?? event.reason));
+    // 連線結束：連上之前是這次連線失敗，不必再等；連上之後則是連線中斷。
+    // 使用者手動斷線時 connected 已經是 false，不算連線中斷。
+    void ended(String reason) {
+      if (!result.isCompleted) {
+        result.complete(reason);
+      } else if (connected) {
+        connected = false;
+        // core 回報斷線後行程不會自己結束，不能讓它留在背景
+        process.kill();
+        _connectionLost.complete(reason);
+      }
+    }
 
-    // core 在連上之前就結束（例如當掉）時不必再等，直接回報它留下的錯誤。
+    // 還沒連上就斷線（例如被踢出）時，core 回報的最後一個錯誤才是原因
+    whenEvent<DisconnectedEvent>(
+        (event) => ended(connected ? event.reason : lastError ?? event.reason));
+
+    // core 行程結束（例如當掉）時不會回報斷線，要看它留下的錯誤才知道原因。
     // 行程結束時輸出可能還沒讀完，要等讀完才知道它最後說了什麼。
     process.exitCode.then((code) async {
       await _outputDone;
-      finish(_lastErrorLine(_stderr.toString()) ??
-          lastError ??
+      ended(_lastErrorLine(_stderr.toString()) ??
+          // 連上之後 core 回報過的錯誤，不一定和這次結束有關
+          (connected ? null : lastError) ??
           'core 意外結束（結束代碼 $code）');
     });
 
@@ -230,10 +230,8 @@ class BotCore {
   IEvent? _eventHandler(RawEvent event) {
     switch (event.event) {
       case EventType.connected:
-        connected = true;
         return ConnectedEvent(event);
       case EventType.disconnected:
-        connected = false;
         return DisconnectedEvent(event);
       case EventType.info:
         return InfoLogEvent(event);

@@ -12,3 +12,4 @@ export 'microsoft_oauth_dialog.dart';
 export 'check_dialog.dart';
 export 'account_view.dart';
 export 'select_account.dart';
+export 'start_bot.dart';
