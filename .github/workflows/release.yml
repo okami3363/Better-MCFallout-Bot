@@ -31,26 +31,18 @@ jobs:
       - build_windows
       - build_macos
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download files
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
-      - name: Zip Linux
-        uses: thedoctor0/zip-release@master
-        with:
-          type: "zip"
-          filename: "Better-MCFallout-Bot-${{ github.event.inputs.version }}-Linux.zip"
-          path: Better-MCFallout-Bot-${{ github.event.inputs.version }}-Linux
       - name: Zip Windows
-        uses: thedoctor0/zip-release@master
-        with:
-          type: "zip"
-          filename: "Better-MCFallout-Bot-${{ github.event.inputs.version }}-Windows.zip"
-          path: Better-MCFallout-Bot-${{ github.event.inputs.version }}-Windows
+        run: zip -r "Better-MCFallout-Bot-${{ github.event.inputs.version }}-Windows.zip" "Better-MCFallout-Bot-${{ github.event.inputs.version }}-Windows"
 
       - name: Release files
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Better MCFallout Bot ${{ github.event.inputs.version }}
           fail_on_unmatched_files: true
@@ -58,15 +50,6 @@ jobs:
           tag_name: ${{ github.event.inputs.version }}
           body: ${{ github.event.inputs.body }}
           files: |
-            Better-MCFallout-Bot-${{ github.event.inputs.version }}-Linux.zip
+            Better-MCFallout-Bot-${{ github.event.inputs.version }}-Linux/Better-MCFallout-Bot-${{ github.event.inputs.version }}-Linux.zip
             Better-MCFallout-Bot-${{ github.event.inputs.version }}-Windows.zip
             Better-MCFallout-Bot-${{ github.event.inputs.version }}-macOS/Better-MCFallout-Bot-${{ github.event.inputs.version }}-macOS.dmg
-      - name: Create Sentry release
-        uses: getsentry/action-release@v1
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-        with:
-          environment: production
-          version: ${{ github.event.inputs.version }}

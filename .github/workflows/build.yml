@@ -13,10 +13,10 @@ jobs:
     outputs:
       github_short_hash: ${{ steps.github_short_hash.outputs.result }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get github short hash
         id: github_short_hash
-        run: echo "::set-output name=result::$(git rev-parse --short "${{ github.sha }}")"
+        run: echo "result=$(git rev-parse --short "${{ github.sha }}")" >> "$GITHUB_OUTPUT"
 
   build_linux:
     if: ${{ !contains(github.event.head_commit.message,'[ci skip]') }}

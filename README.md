@@ -15,7 +15,7 @@ Discord 社群: https://discord.gg/WJSnhPzcgs
 ## 🎮 下載
 本軟體支援 Windows、Linux、macOS 作業系統，另外僅支援 64 位元的電腦。
 
-[前我前往下載頁面](https://github.com/SiongSng/Better-MCFallout-Bot/releases/latest)
+[前我前往下載頁面](https://github.com/okami3363/Better-MCFallout-Bot/releases/latest)
 
 在下方的 `Assets` 欄位會看到檔案，請選擇對應您電腦的作業系統進行下載。  
 

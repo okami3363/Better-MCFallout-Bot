@@ -11,16 +11,26 @@ jobs:
   build_windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2.8.0
+      - uses: actions/checkout@v4
+      # core 的相依套件只支援到 Node 18（更新的版本會在安裝或執行時失敗）
+      - uses: actions/setup-node@v4
         with:
-          channel: "beta"
-          flutter-version: "3.7.0-1.5.pre"
+          node-version: 18
+      - run: npm install -g yarn
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: "3.50.0"
           cache: true
       - name: Build release
-        run: script/build_windows.bat
+        shell: cmd
+        run: |
+          call script\build_windows.bat
+          if not exist app\assets\better-mcfallout-bot-core.exe exit /b 1
+          if not exist app\build\windows\x64\runner\Release\better_mcfallout_bot.exe exit /b 1
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Better-MCFallout-Bot-${{ inputs.version }}-Windows
-          path: ${{ github.workspace }}/app/build/windows/runner/Release
+          path: ${{ github.workspace }}/app/build/windows/x64/runner/Release
+          if-no-files-found: error

@@ -11,20 +11,34 @@ jobs:
   build_linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2.8.0
+      - uses: actions/checkout@v4
+      # core 的相依套件只支援到 Node 18（更新的版本會在安裝或執行時失敗）
+      - uses: actions/setup-node@v4
         with:
-          channel: "beta"
-          flutter-version: "3.7.0-1.5.pre"
+          node-version: 18
+      - run: npm install -g yarn
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: "3.50.0"
           cache: true
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libx11-dev pkg-config cmake ninja-build libblkid-dev liblzma-dev
       - name: Build release
-        run: bash script/build_linux.sh
+        run: |
+          bash script/build_linux.sh
+          test -f app/assets/better-mcfallout-bot-core
+      # 在這裡就壓成 zip：artifact 上傳不會保留執行權限，直接傳資料夾會讓程式無法執行
+      - name: Zip bundle
+        run: |
+          cd app/build/linux/x64/release
+          mv bundle "Better-MCFallout-Bot-${{ inputs.version }}-Linux"
+          zip -r "Better-MCFallout-Bot-${{ inputs.version }}-Linux.zip" "Better-MCFallout-Bot-${{ inputs.version }}-Linux"
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Better-MCFallout-Bot-${{ inputs.version }}-Linux
-          path: ${{ github.workspace }}/app/build/linux/x64/release/bundle
+          path: ${{ github.workspace }}/app/build/linux/x64/release/Better-MCFallout-Bot-${{ inputs.version }}-Linux.zip
+          if-no-files-found: error

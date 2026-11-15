@@ -11,15 +11,21 @@ jobs:
   build_macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2.8.0
+      - uses: actions/checkout@v4
+      # core 的相依套件只支援到 Node 18（更新的版本會在安裝或執行時失敗）
+      - uses: actions/setup-node@v4
         with:
-          channel: "beta"
-          flutter-version: "3.7.0-1.5.pre"
+          node-version: 18
+      - run: npm install -g yarn
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: "3.50.0"
           cache: true
       - name: Build release
         run: |
           bash script/build_macos.sh
+          test -f app/assets/better-mcfallout-bot-core
           cd app/build/macos/Build/Products
           brew install create-dmg
           create-dmg \
@@ -33,7 +39,8 @@ jobs:
           "Better-MCFallout-Bot-${{ inputs.version }}-macOS.dmg" \
           "Release/"
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Better-MCFallout-Bot-${{ inputs.version }}-macOS
           path: ${{ github.workspace }}/app/build/macos/Build/Products/Better-MCFallout-Bot-${{ inputs.version }}-macOS.dmg
+          if-no-files-found: error
