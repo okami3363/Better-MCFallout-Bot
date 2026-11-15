@@ -26,8 +26,9 @@ jobs:
         shell: cmd
         run: |
           call script\build_windows.bat
-          if not exist app\assets\better-mcfallout-bot-core.exe exit /b 1
-          if not exist app\build\windows\x64\runner\Release\better_mcfallout_bot.exe exit /b 1
+          rem build_windows.bat 會切換目錄，所以用絕對路徑檢查
+          if not exist "%GITHUB_WORKSPACE%\app\assets\better-mcfallout-bot-core.exe" exit /b 1
+          if not exist "%GITHUB_WORKSPACE%\app\build\windows\x64\runner\Release\better_mcfallout_bot.exe" exit /b 1
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
