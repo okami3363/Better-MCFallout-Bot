@@ -116,8 +116,7 @@ void main() {
 
     await bot.connect();
 
-    // 沒被結束的話，要等假 core 的 sleep 30 跑完才會有結束代碼
-    await bot.process.exitCode.timeout(immediately);
+    await coreEnded(bot);
   });
 
   test('core 無法啟動時，回報啟動失敗的原因', () async {

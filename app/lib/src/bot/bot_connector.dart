@@ -50,6 +50,9 @@ class BotConnector extends ChangeNotifier {
 
   final _cancelled = Completer<void>();
 
+  /// 最近一次連線用的 bot：取消時要一併結束。
+  BotCore? _bot;
+
   BotConnector(
       {required this.account,
       this.reconnect = false,
@@ -125,9 +128,8 @@ class BotConnector extends ChangeNotifier {
       }
 
       if (_cancelled.isCompleted) {
-        // 取消之後才連上的 bot 不能留著。
-        // ponytail: 取消不會中止進行中的這一次連線，最久要等 BotCore 的連線逾時；
-        // 要立刻中止，得先讓 BotCore 能在連線途中斷線。
+        // [cancel] 已經結束了這次連線的 bot。這裡是保險：取消正好發生在 bot
+        // 建立的當下時 [cancel] 還碰不到它，連上之後也不能留著。
         bot?.disconnect();
         return null;
       }
@@ -142,9 +144,12 @@ class BotConnector extends ChangeNotifier {
   /// 帳號目前存著的憑證：檢查憑證時可能已經把它更新過了。
   Account get _latestAccount => accountStorage.get(account.uuid) ?? account;
 
-  /// 停止連線：不再重試，[connect] 回傳 null。
+  /// 停止連線：不再重試，[connect] 回傳 null。進行中的那一次連線也一併中止，
+  /// core 不會留著繼續連線（各階段怎麼中止見 [BotCore.disconnect]）。
   void cancel() {
-    if (!_cancelled.isCompleted) _cancelled.complete();
+    if (_cancelled.isCompleted) return;
+    _cancelled.complete();
+    _bot?.disconnect();
   }
 
   /// 嘗試連線一次，失敗時丟出原因。
@@ -167,7 +172,7 @@ class BotConnector extends ChangeNotifier {
     checkingCredentials = false;
     notifyListeners();
 
-    final bot = _createBot(_latestAccount);
+    final bot = _bot = _createBot(_latestAccount);
     final error = await bot.connect();
     if (error != null) throw error;
     return bot;

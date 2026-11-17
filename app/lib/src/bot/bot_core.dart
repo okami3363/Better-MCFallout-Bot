@@ -36,6 +36,12 @@ class BotCore {
   /// 連上伺服器之後連線中斷時完成，值是原因。使用者手動斷線時不會完成。
   Future<String> get connectionLost => _connectionLost.future;
 
+  /// 被要求斷線（[disconnect]）時完成。
+  final _disconnectRequested = Completer<void>();
+
+  /// 還沒連上就被要求斷線時，[connect] 回報的失敗原因。
+  static const _aborted = '已中止連線';
+
   /// core 寫到 stderr 的內容，core 當掉時用來說明原因。
   final StringBuffer _stderr = StringBuffer();
 
@@ -52,12 +58,17 @@ class BotCore {
     _instance = this;
   }
 
+  /// 結束這個 bot，不論它連線到哪個階段：已經連上就斷線；core 還在連線就立刻
+  /// 結束它；core 還沒啟動就不啟動（正在啟動的話，一啟動就結束）。
+  /// 還沒連上的話，[connect] 會回報連線失敗。
   void disconnect() {
-    if (!connected) return;
-    _executeAction(const BotAction(action: BotActionType.disconnect));
-    process.kill(ProcessSignal.sigkill);
-    connected = false;
-    _logger.info('The bot was manually disconnected');
+    if (_disconnectRequested.isCompleted) return;
+    if (connected) {
+      _executeAction(const BotAction(action: BotActionType.disconnect));
+      connected = false;
+      _logger.info('The bot was manually disconnected');
+    }
+    _disconnectRequested.complete();
   }
 
   void whenEvent<E extends IEvent>(void Function(E event) callback) {
@@ -111,6 +122,8 @@ class BotCore {
     } else {
       host = region.host;
     }
+    // 還沒啟動 core 就被要求斷線（例如還在挑選伺服器區域）：不必啟動了
+    if (_disconnectRequested.isCompleted) return _aborted;
 
     try {
       process = await _startCore(_getConfig());
@@ -124,6 +137,8 @@ class BotCore {
     final result = Completer<String?>();
 
     whenEvent<ConnectedEvent>((event) {
+      // 已經被要求斷線：core 被結束前來得及回報的「連上」不算數
+      if (_disconnectRequested.isCompleted) return;
       connected = true;
       connectedData = event;
       _logger.info('Connected to $host:$port');
@@ -159,6 +174,13 @@ class BotCore {
           // 連上之後 core 回報過的錯誤，不一定和這次結束有關
           (connected ? null : lastError) ??
           'core 意外結束（結束代碼 $code）');
+    });
+
+    // 被要求斷線時立刻結束 core，不等它連上或逾時。core 還在啟動時就被要求
+    // 斷線的話，啟動後會馬上執行到這裡。
+    _disconnectRequested.future.then((_) {
+      process.kill(ProcessSignal.sigkill);
+      if (!result.isCompleted) result.complete(_aborted);
     });
 
     final error = await result.future

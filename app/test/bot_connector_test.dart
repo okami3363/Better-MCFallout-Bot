@@ -242,7 +242,33 @@ void main() {
     expect(attempts, 1);
   });
 
-  test('連線進行中取消時，就算之後連上了也不會留著', () async {
+  test('連線進行中取消時立刻結束 core，它不會在取消之後登入伺服器', () async {
+    final dir = Directory.systemTemp.createTempSync('bot_connector_test');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final loggedIn = File('${dir.path}/logged-in');
+
+    final started = Completer<void>();
+    late final BotCore bot;
+    final connector = BotConnector(
+        account: account,
+        reconnect: true,
+        validate: valid,
+        // 放著不管的話，core 過 1 秒就會登入伺服器
+        createBot: (account) => bot = createBot(announcing(
+            started,
+            fakeCore(
+                ['sleep 1', 'touch "${loggedIn.path}"', connected, hang]))));
+
+    final result = connector.connect();
+    await started.future;
+    connector.cancel();
+
+    expect(await result.timeout(immediately), isNull);
+    await coreEnded(bot);
+    expect(loggedIn.existsSync(), isFalse, reason: 'core 在取消之後登入了伺服器');
+  });
+
+  test('取消正好撞上 bot 建立的當下時，就算之後連上了也不會留著', () async {
     late final BotConnector connector;
     late final BotCore bot;
     connector = BotConnector(
@@ -250,15 +276,14 @@ void main() {
         reconnect: true,
         validate: valid,
         createBot: (account) {
-          // 使用者在 core 連線時按下取消
+          // 取消的時候，這次連線的 bot 還沒交到 connector 手上
           connector.cancel();
           return bot = reachable(account);
         });
 
     expect(await connector.connect().timeout(immediately), isNull);
     expect(bot.connected, isFalse);
-    // 沒被結束的話，要等假 core 的 sleep 30 跑完才會有結束代碼
-    await bot.process.exitCode.timeout(immediately);
+    await coreEnded(bot);
   });
 
   test('檢查帳號憑證時取消，就不會再啟動 core', () async {
