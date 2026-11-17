@@ -6,10 +6,16 @@ import 'package:logging/logging.dart';
 import 'package:oauth2/oauth2.dart';
 import 'package:uuid/uuid.dart';
 
-Map<String, String> _baseHeaders = {
+const Map<String, String> _baseHeaders = {
   'Accept': 'application/json',
   'Content-Type': 'application/json',
 };
+
+/// 加上 Minecraft token 的標頭。只有 Minecraft 的 API 需要 token，
+/// Xbox Live 與 Minecraft 的登入不能帶，所以不能直接改共用的 [_baseHeaders]。
+Map<String, String> _headersWithToken(String minecraftToken) =>
+    {..._baseHeaders, 'Authorization': 'Bearer $minecraftToken'};
+
 final Logger _logger = Logger('microsoft_oauth_handler');
 
 enum MicrosoftAccountStatus {
@@ -169,31 +175,28 @@ class MicrosoftOauthHandler {
     return;
   }
 
-  /// Verify the microsoft account is able to play minecraft
+  /// 檢查帳號憑證能不能用，失效的話就更新。
+  ///
+  /// 回傳 false 表示憑證已經失效而且沒能更新，多半要重新登入才行。
+  /// 伺服器暫時無法檢查時（例如檢查太頻繁被拒、服務出錯）會丟出原因：
+  /// 這不代表憑證有問題，晚點再試就好。
   static Future<bool> validate(Account account) async {
-    final Response response = await get(
-        Uri.parse('https://api.minecraftservices.com/minecraft/profile'),
-        headers: _baseHeaders
-          ..addAll({'Authorization': 'Bearer ${account.minecraftToken}'}));
+    final Response response = await _requestProfile(account.minecraftToken);
 
-    if (response.statusCode != 200) {
-      // The token is expired, so we need to refresh it.
-      try {
-        final credentials =
-            await account.credentials.refresh(identifier: clientID);
-        final statusList = await authorization(credentials).toList();
+    if (response.statusCode == 200) return true;
+    // 只有 401 才是憑證失效。其他狀態當成過期的話，會白白重走一次更新流程，
+    // 更新再失敗還會叫使用者重新登入。
+    if (response.statusCode != 401) throw '伺服器回應 ${response.statusCode}';
 
-        if (statusList.any((e) => e == MicrosoftAccountStatus.successful)) {
-          return true;
-        } else {
-          return false;
-        }
-      } catch (e) {
-        _logger.severe('Failed to refresh the credentials');
-        return false;
-      }
-    } else {
-      return true;
+    try {
+      final credentials =
+          await account.credentials.refresh(identifier: clientID);
+      final statusList = await authorization(credentials).toList();
+
+      return statusList.contains(MicrosoftAccountStatus.successful);
+    } catch (e) {
+      _logger.severe('Failed to refresh the credentials');
+      return false;
     }
   }
 
@@ -262,8 +265,7 @@ class MicrosoftOauthHandler {
           // Generate a random uuid
           'requestId': const Uuid().v4(),
         }),
-        headers: _baseHeaders
-          ..addAll({'Authorization': 'Bearer $accessToken'}));
+        headers: _headersWithToken(accessToken));
 
     if (response.statusCode == 200) {
       final entitlements = MicrosoftEntitlements.fromJson(response.body);
@@ -275,10 +277,7 @@ class MicrosoftOauthHandler {
   }
 
   static Future<Map?> getProfile(mcAccessToken) async {
-    final Response response = await get(
-      Uri.parse('https://api.minecraftservices.com/minecraft/profile'),
-      headers: _baseHeaders..addAll({'Authorization': 'Bearer $mcAccessToken'}),
-    );
+    final Response response = await _requestProfile(mcAccessToken);
 
     final Map data = json.decode(response.body);
 
@@ -288,4 +287,8 @@ class MicrosoftOauthHandler {
       return data;
     }
   }
+
+  static Future<Response> _requestProfile(String minecraftToken) =>
+      get(Uri.parse('https://api.minecraftservices.com/minecraft/profile'),
+          headers: _headersWithToken(minecraftToken));
 }

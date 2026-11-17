@@ -1,5 +1,6 @@
 // 測試共用：用 shell script 假裝是 core。
-// sh 在 Windows 上無法執行，用到的測試檔要加上 @TestOn('mac-os || linux')。
+// sh 在 Windows 上無法執行：用到假 core 的測試檔要加上 @TestOn('mac-os || linux')，
+// 只有個別測試用到時，在該測試加上 testOn: 'mac-os || linux'。
 import 'dart:convert';
 import 'dart:io';
 
