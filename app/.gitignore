@@ -49,5 +49,4 @@ app.*.map.json
 /android/app/release
 
 # Core executable file
-assets/better-mcfallout-bot-core
-assets/better-mcfallout-bot-core.exe
+assets/better-mcfallout-bot-core*

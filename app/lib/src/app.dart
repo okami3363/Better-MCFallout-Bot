@@ -2,7 +2,6 @@ import 'package:better_mcfallout_bot/src/better_mcfallout_bot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_window_close/flutter_window_close.dart';
 import 'package:logging/logging.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
 class App extends StatefulWidget {
@@ -22,7 +21,6 @@ class _AppState extends State<App> {
 
   Future<void> init() async {
     await windowManager.setTitle('更好的廢土機器人 V${await Util.getAppVersion()}');
-    SentryFlutter.setAppStartEnd(DateTime.now().toUtc());
     Logger.root.info('App started');
 
     FlutterWindowClose.setWindowShouldCloseHandler(() async {
@@ -60,9 +58,6 @@ class _AppState extends State<App> {
             waitDuration: const Duration(milliseconds: 250),
           ),
           useMaterial3: true),
-      navigatorObservers: [
-        SentryNavigatorObserver(enableAutoTransactions: false)
-      ],
       home: const HomePage(),
     );
   }

@@ -35,10 +35,13 @@ function firstEvent(t, port, name) {
     allow_tpa: [],
     attack_interval_ticks: 12,
   };
-  const core = spawn(process.execPath, [
-    path.join(__dirname, "../dist/index.js"),
-    JSON.stringify(config),
-  ]);
+  // 設了 CORE_BIN 就改測打包好的執行檔，否則測 dist 裡編譯好的程式
+  const core = process.env.CORE_BIN
+    ? spawn(process.env.CORE_BIN, [JSON.stringify(config)])
+    : spawn(process.execPath, [
+        path.join(__dirname, "../dist/index.js"),
+        JSON.stringify(config),
+      ]);
   t.after(() => core.kill("SIGKILL"));
 
   let stdout = "";

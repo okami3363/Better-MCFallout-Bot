@@ -18,7 +18,6 @@ class _AboutPageState extends State<AboutPage> {
     super.initState();
 
     getVersion();
-    analytics.pageView('About');
   }
 
   getVersion() async {

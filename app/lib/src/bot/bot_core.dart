@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:better_mcfallout_bot/src/better_mcfallout_bot.dart';
@@ -281,10 +282,18 @@ class BotCore {
         'attack_interval_ticks': appConfig.attackIntervalTicks,
       };
 
+  /// macOS 安裝檔裡 core 的檔名。安裝檔同時支援 Intel 與 Apple Silicon，
+  /// 兩種 CPU 各有一份 core。
+  @visibleForTesting
+  static String macosCoreFileName(Abi abi) =>
+      'better-mcfallout-bot-core-${abi == Abi.macosArm64 ? 'arm64' : 'x64'}';
+
   static String _getExecutablePath() {
     final String file;
     if (Platform.isWindows) {
       file = 'better-mcfallout-bot-core.exe';
+    } else if (Platform.isMacOS) {
+      file = macosCoreFileName(Abi.current());
     } else {
       file = 'better-mcfallout-bot-core';
     }

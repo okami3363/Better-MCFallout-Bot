@@ -6,6 +6,9 @@
 
 詳細功能請看 [這裡](#-功能)  
 祝您使用愉快！  
+
+> 這是 [SiongSng/Better-MCFallout-Bot](https://github.com/SiongSng/Better-MCFallout-Bot) 的修改版。原專案已封存，停在 1.0.6；與原版的差異請看 [這裡](#-與原版的差異)。
+
 Discord 社群: https://discord.gg/WJSnhPzcgs  
 
 ## [立即下載](#-下載)   
@@ -13,23 +16,16 @@ Discord 社群: https://discord.gg/WJSnhPzcgs
 ![image](https://user-images.githubusercontent.com/48402225/182155275-dc162aae-85ca-44a4-80d6-cef10a9bb55b.png)
 
 ## 🎮 下載
-本軟體支援 Windows、Linux、macOS 作業系統，另外僅支援 64 位元的電腦。
+目前只提供 macOS 版的安裝檔（macOS 12 以上，Intel 與 Apple Silicon 的 Mac 都能用）。Windows 與 Linux 需要自行從原始碼建置。
 
-[前我前往下載頁面](https://github.com/okami3363/Better-MCFallout-Bot/releases/latest)
+[前往下載頁面](https://github.com/okami3363/Better-MCFallout-Bot/releases/latest)
 
-在下方的 `Assets` 欄位會看到檔案，請選擇對應您電腦的作業系統進行下載。  
-
-![image](https://user-images.githubusercontent.com/48402225/182160712-9317bdf4-b406-4414-834b-1aeca5f06905.png)
+在下方的 `Assets` 欄位下載 `.dmg` 檔。
 
 ### 如何使用
-#### Windows
-請先下載後，解壓縮檔案，接著執行 `better_mcfallout_bot.exe` 即可
-#### Linux 
-請先下載後，解壓縮檔案，接著執行 `better_mcfallout_bot` 即可
-
-#### macOS
-請先下載後檔案後並安裝，再去執行  
-第一次執行時若出現 「Apple 無法檢查是否包含惡意軟體」等內容，屬於正常現象，因為沒使用 Apple 開發者帳號簽署 (Apple 開發者帳號蠻貴的)，請開啟「系統偏好設定」，進入「安全性與隱私權」類別，選擇強制開啟
+1. 打開下載的 `.dmg`，把 `better_mcfallout_bot` 拖進「應用程式」
+2. 第一次開啟時 macOS 會擋下來，屬於正常現象，因為沒使用 Apple 開發者帳號簽署 (Apple 開發者帳號蠻貴的)
+3. 開啟「系統設定」，進入「隱私權與安全性」，往下捲到「安全性」，在 `better_mcfallout_bot` 的提示旁按「仍要打開」（較舊的 macOS 顯示的是「強制打開」）
 
 ## 🎨 功能
 ### ***自動刷突襲塔***
@@ -49,6 +45,13 @@ Discord 社群: https://discord.gg/WJSnhPzcgs
 
 ### 多重開啟
 同時啟動多個不同帳號的機器人，達成效益最大化！
+
+## 🔧 與原版的差異
+- 修正登入後連不上廢土伺服器的問題
+- 連線失敗、被伺服器踢出時，會顯示真正的原因
+- 斷線後會一直自動重連，直到連上或您自己取消；視窗被遮住或最小化時也一樣
+- 不再回傳錯誤回報與使用統計
+- 目前只提供 macOS 版的安裝檔
 
 ## 🪟 截圖
 ![image](https://user-images.githubusercontent.com/48402225/182106836-05185041-ecea-424f-833c-512fe81abd4a.png)
@@ -92,5 +95,5 @@ Javascript
 [Mineflayer](https://github.com/PrismarineJS/mineflayer)
 
 ## 免責聲明
-本程式僅會回傳程式例外錯誤資訊與統計使用者數量 (已去識別化)，方便修復 Bug 並提供更好的體驗，不包含任何個人資料與帳號  
+本程式不會回傳任何錯誤回報或使用統計。執行紀錄只會存在您自己的電腦上，從主畫面左上角的資料夾圖示可以打開存放位置  
 若是擔心安全問題可以自行從程式原始碼編譯，如果還是不放心的話就不要用吧

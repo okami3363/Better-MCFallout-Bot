@@ -28,8 +28,6 @@ class _BotStatusPageState extends State<BotStatusPage> {
     commandController = TextEditingController();
 
     super.initState();
-
-    analytics.pageView('Bot Status Page');
   }
 
   @override

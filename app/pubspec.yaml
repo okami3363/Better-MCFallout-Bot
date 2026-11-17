@@ -15,7 +15,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.7
+version: 1.0.8
 
 environment:
   sdk: ">=2.18.0 <3.0.0"
@@ -33,7 +33,6 @@ dependencies:
 
   path_provider: ^2.0.11
   path: ^1.8.1
-  sentry_flutter: ^8.14.2
   package_info_plus: ^9.0.1
   logging: ^1.0.2
   flutter_window_close: ^0.2.2
@@ -68,8 +67,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # sentry_flutter 8.x 的 Swift 程式碼只相容 Sentry Cocoa 8.46.0；
-  # 走 SwiftPM 會解析到更新的版本而編譯失敗，所以改由 CocoaPods 鎖定版本。
+  # 外掛一律用 CocoaPods 整合。當初是為了鎖定 sentry_flutter 的相依版本才關掉
+  # Swift Package Manager；sentry_flutter 移除後沒有重新驗證過，所以先維持現狀。
   config:
     enable-swift-package-manager: false
 

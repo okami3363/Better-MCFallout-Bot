@@ -5,7 +5,6 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_window_close
   screen_retriever
-  sentry_flutter
   url_launcher_linux
   window_manager
 )

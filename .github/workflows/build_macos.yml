@@ -6,6 +6,11 @@ on:
       version:
         required: true
         type: string
+      # app 顯示的版本號；沒給就用 pubspec.yaml 裡的版本
+      build_name:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   build_macos:
@@ -22,11 +27,26 @@ jobs:
           channel: "stable"
           flutter-version: "3.50.0"
           cache: true
+      # runner 是 Apple Silicon，打包與測試 Intel 版的 core 需要 Rosetta
+      - name: Install Rosetta
+        run: softwareupdate --install-rosetta --agree-to-license
       - name: Build release
+        run: bash script/build_macos.sh "${{ inputs.build_name }}"
+      # 用 core 的測試檢查打包好的兩種執行檔都能連線
+      - name: Test packaged core
         run: |
-          bash script/build_macos.sh
-          test -f app/assets/better-mcfallout-bot-core
+          cd core
+          CORE_BIN="$PWD/out/better-mcfallout-bot-core-arm64" node --test test/*.test.js
+          CORE_BIN="$PWD/out/better-mcfallout-bot-core-x64" node --test test/*.test.js
+      - name: Create dmg
+        run: |
           cd app/build/macos/Build/Products
+          # 只放 app 本身：Release 資料夾裡還有建置過程的中間檔
+          mkdir dmg
+          ditto Release/better_mcfallout_bot.app dmg/better_mcfallout_bot.app
+          assets=dmg/better_mcfallout_bot.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets
+          test -x "$assets/better-mcfallout-bot-core-arm64"
+          test -x "$assets/better-mcfallout-bot-core-x64"
           brew install create-dmg
           create-dmg \
           --volname "Better MCFallout Bot Installer (${{ inputs.version }})" \
@@ -37,7 +57,7 @@ jobs:
           --app-drop-link 540 250 \
           --hdiutil-quiet \
           "Better-MCFallout-Bot-${{ inputs.version }}-macOS.dmg" \
-          "Release/"
+          "dmg/"
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
