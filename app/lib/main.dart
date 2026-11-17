@@ -30,15 +30,20 @@ Future<void> logging() async {
       print(record.toString());
     }
 
-    if (!logFile.existsSync()) {
-      logFile.createSync(recursive: true);
-    }
     String log = '[${record.time}] ${record.level.name}: ${record.message}';
     if (record.stackTrace != null) {
       log += '\n${record.stackTrace}';
     }
 
-    logFile.writeAsStringSync('$log\n', mode: FileMode.append);
+    try {
+      if (!logFile.existsSync()) {
+        logFile.createSync(recursive: true);
+      }
+      logFile.writeAsStringSync('$log\n', mode: FileMode.append);
+    } catch (_) {
+      // 寫不進去（例如磁碟滿了）就放棄這一筆。不限定例外型別：這裡丟出的例外
+      // 會被下面的 onError 接住、又回來寫紀錄，沒完沒了，app 會卡住。
+    }
   });
 
   FlutterError.onError = (details) {
@@ -47,6 +52,7 @@ Future<void> logging() async {
   };
   PlatformDispatcher.instance.onError = (error, stackTrace) {
     Logger.root.severe('$error', null, stackTrace);
-    return true;
+    // 回傳 false，讓系統照常把錯誤與堆疊印到 console
+    return false;
   };
 }

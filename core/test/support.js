@@ -17,9 +17,12 @@ async function startServer(t, onLogin) {
   return server.socketServer.address().port;
 }
 
+// 設了 CORE_BIN 就改測打包好的執行檔，否則測 dist 裡編譯好的程式
+const packagedCore = process.env.CORE_BIN;
+
 // 等 core 送出事件的上限。打包好的 Intel 版在 Apple Silicon 上第一次執行時，
 // 要先經過 Rosetta 轉譯，會比平常慢很多。
-const TIMEOUT_MS = process.env.CORE_BIN ? 60000 : 5000;
+const TIMEOUT_MS = packagedCore ? 60000 : 5000;
 
 /**
  * 啟動 core 連到本機假伺服器，等它送出第一個指定名稱的事件。
@@ -39,13 +42,10 @@ function firstEvent(t, port, name) {
     allow_tpa: [],
     attack_interval_ticks: 12,
   };
-  // 設了 CORE_BIN 就改測打包好的執行檔，否則測 dist 裡編譯好的程式
-  const core = process.env.CORE_BIN
-    ? spawn(process.env.CORE_BIN, [JSON.stringify(config)])
-    : spawn(process.execPath, [
-        path.join(__dirname, "../dist/index.js"),
-        JSON.stringify(config),
-      ]);
+  const [command, ...args] = packagedCore
+    ? [packagedCore]
+    : [process.execPath, path.join(__dirname, "../dist/index.js")];
+  const core = spawn(command, [...args, JSON.stringify(config)]);
   t.after(() => core.kill("SIGKILL"));
 
   let stdout = "";

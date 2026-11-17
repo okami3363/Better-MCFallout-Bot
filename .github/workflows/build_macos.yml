@@ -36,8 +36,9 @@ jobs:
       - name: Test packaged core
         run: |
           cd core
-          CORE_BIN="$PWD/out/better-mcfallout-bot-core-arm64" node --test test/*.test.js
-          CORE_BIN="$PWD/out/better-mcfallout-bot-core-x64" node --test test/*.test.js
+          for arch in arm64 x64; do
+            CORE_BIN="$PWD/out/better-mcfallout-bot-core-$arch" node --test test/*.test.js
+          done
       - name: Create dmg
         run: |
           cd app/build/macos/Build/Products
@@ -45,8 +46,9 @@ jobs:
           mkdir dmg
           ditto Release/better_mcfallout_bot.app dmg/better_mcfallout_bot.app
           assets=dmg/better_mcfallout_bot.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets
-          test -x "$assets/better-mcfallout-bot-core-arm64"
-          test -x "$assets/better-mcfallout-bot-core-x64"
+          for arch in arm64 x64; do
+            test -x "$assets/better-mcfallout-bot-core-$arch"
+          done
           brew install create-dmg
           create-dmg \
           --volname "Better MCFallout Bot Installer (${{ inputs.version }})" \

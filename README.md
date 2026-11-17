@@ -25,7 +25,7 @@ Discord 社群: https://discord.gg/WJSnhPzcgs
 ### 如何使用
 1. 打開下載的 `.dmg`，把 `better_mcfallout_bot` 拖進「應用程式」
 2. 第一次開啟時 macOS 會擋下來，屬於正常現象，因為沒使用 Apple 開發者帳號簽署 (Apple 開發者帳號蠻貴的)
-3. 開啟「系統設定」，進入「隱私權與安全性」，往下捲到「安全性」，在 `better_mcfallout_bot` 的提示旁按「仍要打開」（較舊的 macOS 顯示的是「強制打開」）
+3. 開啟「系統設定」，進入「隱私權與安全性」，往下捲到「安全性」，在 `better_mcfallout_bot` 的提示旁按「強制打開」
 
 ## 🎨 功能
 ### ***自動刷突襲塔***

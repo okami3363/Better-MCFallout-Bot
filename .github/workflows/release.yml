@@ -11,10 +11,31 @@ on:
         type: string
         required: false
 
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  VERSION: ${{ github.event.inputs.version }}
+
 jobs:
-  # 目前只發佈 macOS。Windows 與 Linux 的建置流程還在（build.yml 會跑），
-  # 但建出來的程式沒有人實際執行過，所以不放進 Release。
+  # 這個版本已經有 Release（草稿或已公開）時直接停下來：不白跑建置，也不會讓
+  # 同一個版本出現兩份。要重新發佈，請先刪掉舊的草稿，或換一個版本號。
+  check_version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 要有寫入權限才看得到草稿
+    steps:
+      - name: Check the version has no release yet
+        run: |
+          releases=$(gh api "repos/$GH_REPO/releases" --paginate)
+          if jq -s -e --arg version "$VERSION" 'add | any(.tag_name == $version)' <<< "$releases" > /dev/null; then
+            echo "::error::已經有版本 $VERSION 的 Release（草稿或已公開）。要重新發佈請先刪除舊的草稿，或換一個版本號。"
+            exit 1
+          fi
+
+  # 目前只發佈 macOS。Windows 與 Linux 的建置流程還留著（build_windows.yml、
+  # build_linux.yml），但建出來的程式沒有人實際執行過，所以不放進 Release。
   build_macos:
+    needs: check_version
     uses: ./.github/workflows/build_macos.yml
     with:
       version: ${{ github.event.inputs.version }}
@@ -25,20 +46,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      BODY: ${{ github.event.inputs.body }}
+      # 這是 GPL 的修改版，每一版的說明都要註明
+      NOTICE: "這是 [SiongSng/Better-MCFallout-Bot](https://github.com/SiongSng/Better-MCFallout-Bot) 的修改版，原專案停在 1.0.6。與原版的差異請看 [README](https://github.com/${{ github.repository }}#-與原版的差異)。"
     steps:
       - name: Download files
         uses: actions/download-artifact@v4
 
       # 先建立草稿：確認安裝檔可用後，再到 Releases 頁面按 Publish release。
-      # 標籤要指向這次建置的 commit，否則發佈時會指到當時 main 的最新 commit。
-      - name: Release files
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Better MCFallout Bot ${{ github.event.inputs.version }}
-          draft: true
-          fail_on_unmatched_files: true
-          generate_release_notes: true
-          tag_name: ${{ github.event.inputs.version }}
-          target_commitish: ${{ github.sha }}
-          body: ${{ github.event.inputs.body }}
-          files: Better-MCFallout-Bot-${{ github.event.inputs.version }}-macOS/Better-MCFallout-Bot-${{ github.event.inputs.version }}-macOS.dmg
+      # 標籤要指向這次建置的 commit，否則公開時會指到當時 main 最新的 commit。
+      - name: Create draft release
+        run: |
+          gh release create "$VERSION" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Better MCFallout Bot $VERSION" \
+            --notes "$(printf '%s\n\n%s' "$NOTICE" "$BODY")" \
+            --generate-notes \
+            "Better-MCFallout-Bot-$VERSION-macOS/Better-MCFallout-Bot-$VERSION-macOS.dmg"
