@@ -17,9 +17,13 @@ async function startServer(t, onLogin) {
   return server.socketServer.address().port;
 }
 
+// 等 core 送出事件的上限。打包好的 Intel 版在 Apple Silicon 上第一次執行時，
+// 要先經過 Rosetta 轉譯，會比平常慢很多。
+const TIMEOUT_MS = process.env.CORE_BIN ? 60000 : 5000;
+
 /**
  * 啟動 core 連到本機假伺服器，等它送出第一個指定名稱的事件。
- * 回傳 { event, output }；core 結束或 5 秒內沒等到時 event 為 undefined。
+ * 回傳 { event, output }；core 結束或逾時沒等到時 event 為 undefined。
  */
 function firstEvent(t, port, name) {
   const config = {
@@ -63,7 +67,7 @@ function firstEvent(t, port, name) {
     });
     core.stderr.on("data", (chunk) => (output += chunk));
     core.on("close", () => done());
-    setTimeout(done, 5000).unref();
+    setTimeout(done, TIMEOUT_MS).unref();
   });
 }
 
