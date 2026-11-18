@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const mcData = require("minecraft-data")("1.19.2");
-const { startServer, firstEvent } = require("./support");
+const { startServer, joinGame, firstEvent } = require("./support");
 
 // 廢土伺服器（BungeeCord 26.x）對 1.19.2 用戶端送的是 `dimension_type`，
 // 而不是原版的 `minecraft:dimension_type`。
@@ -25,11 +25,9 @@ test("註冊表 key 沒有 minecraft: 命名空間時仍能連線", async (t) =>
     "worldgen/biome",
   ]);
 
-  const port = await startServer(t, (client) => {
-    client.write("login", { ...mcData.loginPacket, dimensionCodec });
-    // mineflayer 收到第一個 update_health 才會發出 spawn
-    client.write("update_health", { health: 20, food: 20, foodSaturation: 5 });
-  });
+  const port = await startServer(t, (client) =>
+    joinGame(client, { ...mcData.loginPacket, dimensionCodec })
+  );
 
   const { event, output } = await firstEvent(t, port, "connected");
 

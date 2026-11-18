@@ -68,6 +68,11 @@ export function createBot() {
     }
   });
 
+  // stdin 是 app 開的管線，它結束就代表 app 已經不在了（當掉、被強制結束，或
+  // 沒先叫 core 斷線就結束）。這時 core 也要結束，不能留在背景繼續登入。
+  // 要直接結束行程：只斷線的話，進入遊戲後的定時工作會讓行程留著。
+  rl.on("close", () => process.exit());
+
   listenBotEvent(bot);
 
   bot.once("end", (reason) => {
