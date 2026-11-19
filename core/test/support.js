@@ -12,7 +12,14 @@ async function startServer(t, onLogin) {
     port: 0,
     version: "1.19.2",
   });
-  t.after(() => server.close());
+  // 收尾時直接切斷還連著的用戶端，不用 server.close()：它會對每個還在的用戶端
+  // 再呼叫一次 client.end()。測試自己結束過的用戶端（例如把它踢掉）如果連線還
+  // 沒真的結束，minecraft-protocol 會留下前一次 end() 設的 30 秒計時器，測試
+  // 行程要等它跑完才會結束。
+  t.after(() => {
+    for (const client of Object.values(server.clients)) client.socket.destroy();
+    server.socketServer.close();
+  });
   server.on("login", onLogin);
   await emitted(server, "listening");
   return server.socketServer.address().port;
