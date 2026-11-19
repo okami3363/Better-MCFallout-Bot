@@ -5,7 +5,8 @@ on:
     branches:
       - "main"
   pull_request:
-  # 手動執行：想重跑一次建置時，不必為此多 push 一個 commit
+  # 手動執行：不必 push 就能建置。已經跑過的那一次可以用 GitHub 內建的 Re-run 重跑；
+  # 還沒有任何 Build 紀錄的 commit（例如沒開 PR 的分支）要靠這個才跑得起來。
   workflow_dispatch:
 
 jobs:
