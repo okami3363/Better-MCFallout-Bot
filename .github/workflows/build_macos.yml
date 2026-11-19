@@ -27,6 +27,11 @@ jobs:
           channel: "stable"
           flutter-version: "3.50.0"
           cache: true
+      # app 的測試先跑：沒過就不必花時間建置。Release 也是用這個檔案建置，所以
+      # 測試沒過的版本發佈不出去。
+      - name: Test app
+        working-directory: app
+        run: flutter test
       # runner 是 Apple Silicon，打包與測試 Intel 版的 core 需要 Rosetta
       - name: Install Rosetta
         run: softwareupdate --install-rosetta --agree-to-license
