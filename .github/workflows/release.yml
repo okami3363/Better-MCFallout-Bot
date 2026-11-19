@@ -51,8 +51,12 @@ jobs:
       # 這是 GPL 的修改版，每一版的說明都要註明
       NOTICE: "這是 [SiongSng/Better-MCFallout-Bot](https://github.com/SiongSng/Better-MCFallout-Bot) 的修改版，原專案停在 1.0.6。與原版的差異請看 [README](https://github.com/${{ github.repository }}#-與原版的差異)。"
     steps:
+      # 指定名稱下載，dmg 一定直接放在工作目錄。沒指定名稱的話，放在哪裡要看這次
+      # 有幾個 artifact：download-artifact 從 v5 起，只有一個就不會多建一層資料夾。
       - name: Download files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
+        with:
+          name: Better-MCFallout-Bot-${{ env.VERSION }}-macOS
 
       # 先建立草稿：確認安裝檔可用後，再到 Releases 頁面按 Publish release。
       # 標籤要指向這次建置的 commit，否則公開時會指到當時 main 最新的 commit。
@@ -64,4 +68,4 @@ jobs:
             --title "Better MCFallout Bot $VERSION" \
             --notes "$(printf '%s\n\n%s' "$NOTICE" "$BODY")" \
             --generate-notes \
-            "Better-MCFallout-Bot-$VERSION-macOS/Better-MCFallout-Bot-$VERSION-macOS.dmg"
+            "Better-MCFallout-Bot-$VERSION-macOS.dmg"

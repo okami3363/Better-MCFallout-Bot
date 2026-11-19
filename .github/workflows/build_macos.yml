@@ -16,9 +16,9 @@ jobs:
   build_macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # core 的相依套件只支援到 Node 18（更新的版本會在安裝或執行時失敗）
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 18
       - run: npm install -g yarn
@@ -66,7 +66,7 @@ jobs:
           "Better-MCFallout-Bot-${{ inputs.version }}-macOS.dmg" \
           "dmg/"
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Better-MCFallout-Bot-${{ inputs.version }}-macOS
           path: ${{ github.workspace }}/app/build/macos/Build/Products/Better-MCFallout-Bot-${{ inputs.version }}-macOS.dmg
