@@ -5,6 +5,8 @@ on:
     branches:
       - "main"
   pull_request:
+  # 手動執行：想重跑一次建置時，不必為此多 push 一個 commit
+  workflow_dispatch:
 
 jobs:
   init:
